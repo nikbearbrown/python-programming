@@ -1,351 +1,197 @@
 # Chapter 2 — Expressions
+*The invisible ruler that decides what your code means.*
 
-## Three title options
+There's a line of Python you can type right now, before you've learned anything else about the language, and it will surprise you:
 
-1. How expressions press out values — operators, types, and the silent work of arithmetic
-2. Expressions: getting a calculator to do your thinking
-3. The machinery of expressions — operators that work, types that change, and why `7 / 4` is not 1
+```python
+3 + 4 * 5
+```
+
+If you read left to right — the way you read English, the way you scan a grocery list — you'd expect the answer to be 35. Three plus four is seven, seven times five is thirty-five. But Python returns 23. It didn't add first. It multiplied first, got 20, then added 3.
+
+That's not a bug. That's a rule — one you already know from algebra, except you may not have realized you knew it. And that gap between what the line *looks like it does* and what it *actually does* is the central danger of expressions. Python won't warn you. There's no error message. Just 23 instead of 35, and if this is buried inside a larger calculation, you might not notice for a long time.
+
+This chapter is about learning to see the invisible ruler that Python holds over every expression — the hierarchy of operations, the hidden conversions between number types, and the three different things "division" can mean. Once you can see that ruler, you can write expressions that do exactly what you intended. And when something goes wrong, you'll know where to look.
 
 ---
 
-## TL;DR
+## What an Expression Is
 
-An expression is a piece of code that evaluates to a single value. Python expressions combine literals, variables, and operators following rules of precedence — which operators execute first — and type conversion — what happens when integers mix with floats, or strings mix with numbers. You'll learn to write expressions in a Python shell, recognize when type conversions help and when they hide bugs, and understand why division on a calculator is not the same division as in Python.
+An expression is a piece of code that evaluates to a single value. That's the whole definition, and it's shorter than it sounds. `7` is an expression — it evaluates to the integer seven. `7 * 4` is an expression — it evaluates to twenty-eight. `7 * (3 + 2)` is an expression — it evaluates to thirty-five. The word comes from Latin *expressus*: pressed out. An expression presses a value out of its components.
 
----
+The components are **literals** — raw values you type directly, like `7` or `3.14` or `"hello"` — and **operators** — symbols that combine them, like `+`, `-`, `*`, `/`, `**`. When Python sees an expression, it evaluates it: follows its rules to produce the single value the expression represents.
 
-## Opening — the REPL and a puzzle
-
-You sit down at a Python shell — a program that lets you type Python one line at a time and see the result immediately. REPL stands for "read-eval-print loop." Read your code. Evaluate it. Print the answer. Then loop back and let you try something else.
-
-You type:
-
-```python
-2 ** 10
-```
-
-The interpreter evaluates it. You see:
-
-```
-1024
-```
-
-You type the same thing again. Same answer. You type a variation:
-
-```python
-2.0 ** 10
-```
-
-You see:
-
-```
-1024.0
-```
-
-A 2 just became a 2.0. The answer just became 1024.0 instead of 1024. Nothing about the calculation changed — two to the tenth power is still 1024 — but the *form* of the answer did. And you're wondering: why?
-
-That question — what decides whether a Python answer looks like 1024 or 1024.0 — is the machinery of this chapter. Because once you understand that, you understand how to control what Python gives you back. And once you can control what Python gives you, you can write programs that don't surprise you.
-
-### Learning objectives
-
-By the end of this chapter you will be able to:
-
-- **Evaluate** expressions involving operators, parentheses, and the rules of precedence, predicting the outcome before the interpreter runs.
-- **Identify** when Python converts types automatically (implicitly) and when you need to convert manually (explicitly) using `int()`, `float()`, and `str()`.
-- **Apply** the three division operators (`/`, `//`, `%`) to solve problems involving quotients, remainders, and unit conversion.
-- **Predict** which data type emerges when integers mix with floats, when strings mix with numbers, and when operations overflow or lose precision.
-- **Use** a Python shell interactively to experiment, correct mistakes with the arrow keys, and troubleshoot expressions before putting them in a program.
-
-### Prerequisites
-
-You are comfortable with high school algebra: plugging numbers into formulas, solving for a variable. You can open a terminal or Python shell on your computer. You understand from Chapter 1 that a variable holds a value, that `=` is assignment, and that `print()` puts text on the screen.
-
-### Why this chapter matters
-
-Every program you write will be built from expressions. A program reads in data (expressions), calculates (expressions), and outputs results (expressions). You cannot write even a simple calculator program without understanding how expressions evaluate. And you cannot debug when things go wrong without knowing why Python's arithmetic did not do what you expected. This chapter is the invisible foundation under everything that follows.
+What rules? That's the interesting part.
 
 ---
 
-## Concept 1 — What an expression is, and how operators decide the outcome
+## The Hierarchy Python Follows
 
-### Cold open: the rule that wasn't there
+Python's operator precedence — the hierarchy that determines which operators act first — matches algebra. The same rules your math teacher taught you.
 
-You're in a spreadsheet. You have a column of prices. You have a column of tax rates. You write a formula in the total column:
+Parentheses win. Whatever is inside parentheses evaluates first, period. Then exponentiation: `**`. Then multiplication, division, floor division, and modulo — all at the same level, evaluated left to right. Then addition and subtraction, also left to right.
 
-```
-price + tax * rate
-```
+The standard mnemonic is PEMDAS, though Python's version includes a few operators your middle school teacher didn't mention.
 
-The spreadsheet calculates. Your friend leans over and says, "Wait — did it multiply first or add first?" You're not sure you know. You calculated the same formula in your head a moment ago and got a different answer.
+So in `3 + 4 * 5`: multiplication is at a higher level than addition. Python evaluates `4 * 5` first, gets 20, then evaluates `3 + 20`, gets 23. The left-to-right reading order has nothing to do with it.
 
-The spreadsheet didn't ask. It just calculated using a rule that has been agreed on since before you were born. Multiplication before addition. Parentheses before everything. That rule has a name: **operator precedence** — from Latin *operari*, to work, and *precedere*, to go before.
+In `(3 + 4) * 5`: the parentheses force addition first. Python evaluates `3 + 4` first, gets 7, then evaluates `7 * 5`, gets 35. Parentheses are your tool for overriding the default order.
 
-An **expression**, from Latin *expressus*, meaning pressed out, is a piece of code that, when evaluated, presses out a single value. The expression `7 * (3 + 2)` presses out the value 35. The expression `2 ** 10` presses out 1024.
-
-### The operators: what they do
-
-Python has operators for arithmetic:
-
-| Operator | Name | Example | Result |
-|---|---|---|---|
-| `+` | Addition | `3 + 5` | `8` |
-| `-` | Subtraction | `10 - 3` | `7` |
-| `*` | Multiplication | `4 * 6` | `24` |
-| `/` | Division (true) | `7 / 2` | `3.5` |
-| `//` | Division (floor) | `7 // 2` | `3` |
-| `%` | Modulo (remainder) | `7 % 2` | `1` |
-| `**` | Exponentiation | `2 ** 3` | `8` |
-
-Each operator does work: `+` adds, `-` subtracts, `*` multiplies. But `/` is the first surprise. In Python, `/` always gives you a float back, even when the division comes out even.
+Here's a worked example worth tracing:
 
 ```python
->>> 10 / 2
-5.0
+2 + 3 * 4 - 5 ** 2
 ```
 
-That `5.0` — not `5` — is the clue that something changed types. We'll come back to that.
+Step 1: Exponentiation first. `5 ** 2 = 25`. Expression becomes `2 + 3 * 4 - 25`.
 
-### Precedence: the invisible ruler
+Step 2: Multiplication next. `3 * 4 = 12`. Expression becomes `2 + 12 - 25`.
 
-When you write an expression like `3 + 4 * 5`, Python doesn't evaluate left to right. It doesn't evaluate right to left either. It uses precedence: a hierarchy that says which operators eat first.
+Step 3: Addition and subtraction, left to right. `2 + 12 = 14`. Then `14 - 25 = -11`.
 
-The hierarchy, from highest to lowest precedence:
+Answer: `-11`. Check it in a Python shell. That's exactly what you'll get.
 
-1. Parentheses: `()`
-2. Exponentiation: `**`
-3. Multiplication, division (all kinds), modulo: `*`, `/`, `//`, `%`
-4. Addition, subtraction: `+`, `-`
+<!-- → [TABLE: Python operator precedence table — columns: precedence level (1–5), operator symbols, name, example, and result — student should see the full hierarchy from parentheses down to addition/subtraction, with exponentiation's right-to-left note] -->
 
-Operators with the same precedence evaluate left to right (except `**`, which is right to left, but that's a detail you rarely need).
+There is one quirk worth naming: `**` is right-to-left, not left-to-right. That means `2 ** 3 ** 2` is `2 ** (3 ** 2)` — which is `2 ** 9 = 512` — not `(2 ** 3) ** 2` — which would be `8 ** 2 = 64`. In practice, when you see stacked exponents, just use parentheses to be explicit. The rule is rarely relevant, but it exists, and it will bite you if you don't know about it.
 
-So `3 + 4 * 5`:
-- First: `4 * 5` evaluates to `20` (multiplication before addition)
-- Then: `3 + 20` evaluates to `23`
+The deeper point about precedence is this: Python designed it to match algebra so that if you learned math, you already know the hierarchy. You don't have to memorize a new system. The problem is that the match is so clean that it becomes invisible. You stop seeing the rules because you assume they're obvious. They *are* obvious — until they're not, and then you've got a calculation that returned the wrong answer and you have no idea why.
 
-If you wanted addition first, you'd write `(3 + 4) * 5`, which is `7 * 5 = 35`.
-
-### The trade-off: implicit precedence versus explicit parens
-
-Python's precedence rules match algebra. If you learned algebra in school, you already know them. That's a win. You don't have to learn a new hierarchy.
-
-But the cost is this: if you don't remember the rule, the code silently does the wrong calculation. There's no error message. Just a wrong answer.
-
-This is why good programmers use parentheses even when they're not required. `(3 + 4) * 5` takes one extra second to type but makes the intent visible. `3 + 4 * 5` makes you trust your memory.
-
-### Worked example — predicting precedence
-
-Evaluate `2 + 3 * 4 - 5 ** 2` without a calculator.
-
-Step 1: Find the operator with highest precedence. Exponentiation goes first.
-- `5 ** 2 = 25`
-- Expression is now: `2 + 3 * 4 - 25`
-
-Step 2: Next precedence level: multiplication.
-- `3 * 4 = 12`
-- Expression is now: `2 + 12 - 25`
-
-Step 3: Addition and subtraction, left to right.
-- `2 + 12 = 14`
-- `14 - 25 = -11`
-
-Answer: `-11`
-
-Check with Python:
-
-```python
->>> 2 + 3 * 4 - 5 ** 2
--11
-```
-
-✓
-
-### Common misconceptions
-
-**Left-to-right is not how it works.** Students often assume `3 + 4 * 5` means "add 3 and 4, then multiply by 5" because that's the order they read. It does not. Precedence decides, not reading order.
-
-**Parentheses are not always about math.** When you write `print(x + y)`, the parentheses are syntax — they're how `print()` knows what to print. When you write `(x + y) * z`, the parentheses are arithmetic. Both use the same symbol. Don't confuse them.
-
-**The rules are the same as algebra.** If you learned math, you already know Python's operator precedence. Trust it.
+The antidote is parentheses. Not because you need them for Python to evaluate correctly, but because they make the order explicit for the human reading the code — including you, six months from now.
 
 ---
 
-## Concept 2 — Types and the silent conversions that surprise you
+## Types, and the Conversions That Happen Without Asking
 
-### Cold open: a string that looked like a number
+There are three types you'll work with constantly: integers (`int`), floating-point numbers (`float`), and strings (`str`). They're categories. An integer is a whole number: `7`, `-3`, `0`. A float is a number with a decimal point: `7.0`, `-3.14`, `0.001`. A string is text: `"hello"`, `"7"`, `"3.14"`.
 
-You write a program that asks someone for their age:
+Note that `"7"` and `7` are different things. One is text. One is a number. You cannot do arithmetic with text, even if the text looks like a number.
 
-```python
-age = input("How old are you? ")
-```
+### When Python Converts Automatically
 
-You type `25`. The variable `age` now holds `"25"` — a string, because `input()` always reads as text.
-
-You write the next line:
-
-```python
-years_until_retirement = 65 - age
-```
-
-You run it. You get an error:
-
-```
-TypeError: unsupported operand type(s) for -: 'int' and 'str'
-```
-
-What happened? `65` is an integer. `age` is a string that looks like a number but isn't. Python will not subtract a string from an integer. It won't guess. It stops and tells you the mistake.
-
-A **type** is a category of value. Python has integers (`int`), floating-point numbers (`float`), strings (`str`), and others. Each type has rules about what you can do with it.
-
-### Implicit type conversion: when Python helps
-
-Sometimes Python converts types automatically. Add an integer and a float:
+When you mix an integer and a float in an arithmetic expression, Python converts the integer to a float:
 
 ```python
 >>> 3 + 2.5
 5.5
 ```
 
-The `3` is an integer. The `2.5` is a float. Python converts the `3` to `3.0` and adds them. The result is a float.
+The `3` became `3.0`. The result is `5.5`, a float. Python did this without asking. Why? Because a float can represent everything an integer can, plus fractional parts. Promoting an integer to a float loses nothing. The reverse — demoting a float to an integer — would cut off the decimal, which might not be what you wanted. So Python promotes upward automatically.
 
-Why? Because a float is more precise than an integer. Integer arithmetic loses the fractional part. Float arithmetic keeps it. When you mix them, Python promotes the integer to a float so nothing is lost.
+This is called **implicit type conversion**: the type changes happen implicitly, as a side effect of the operation.
 
-But this convenience has a cost: it's happening behind the scenes. You don't see the conversion. If you're not thinking about types, you might be surprised.
-
-```python
->>> 1 / 2
-0.5
->>> 1 // 2
-0
-```
-
-Same numbers, different operators. `/` is true division and always returns a float. `//` is floor division and returns an integer. If you accidentally use `//` when you meant `/`, your answer will be silently rounded down.
-
-### Explicit type conversion: when you take control
-
-When implicit conversion doesn't happen (like integer minus string), you convert manually. Python gives you three functions:
-
-- `int(x)` converts to an integer. If `x` is a float, the fractional part is cut off (not rounded).
-- `float(x)` converts to a float. An integer `5` becomes `5.0`.
-- `str(x)` converts to a string. An integer `42` becomes `"42"`.
-
-Back to the age problem:
+The interesting case is `/`, the division operator:
 
 ```python
-age_str = input("How old are you? ")
-age = int(age_str)
-years_until_retirement = 65 - age
+>>> 10 / 2
+5.0
 ```
 
-Now `age` is an integer. The subtraction works.
+Ten divided by two is five — no fraction, clean result. But Python still returns `5.0`, a float. This is intentional. The `/` operator in Python always returns a float, regardless of whether the result is a whole number. The designers made this choice because division in the mathematical sense produces a real number, and they wanted Python's `/` to match that meaning exactly.
 
-Or in one line:
+<!-- → [CHART: side-by-side comparison showing int + int → int, int + float → float, float + float → float, int / int → float (highlight this one as the surprise) — student should see the type promotion rules at a glance] -->
+
+If you're coming from older Python (or from languages like C or Java), this will feel wrong. In those systems, `10 / 2` returns `5`, an integer. Python 3 changed this deliberately. Knowing the history helps: the change was controversial, it broke a lot of old code, and it was made anyway because the old behavior was a source of subtle bugs.
+
+### When Python Refuses
+
+Python does not always convert automatically. When the conversion would be ambiguous or lossy in ways Python can't resolve, it raises a `TypeError` and stops:
+
+```python
+>>> "5" + 5
+TypeError: can only concatenate str (not "int") to str
+```
+
+You asked Python to add a string and an integer. But what should that mean? Should it concatenate — turn `"5"` and `5` into `"55"`? Should it do arithmetic — turn `"5"` into `5` and compute `10`? Python doesn't guess. It refuses, and the error message tells you exactly what it expected.
+
+This happens constantly with user input. The `input()` function always returns a string — always, without exception. Type `25` at a prompt, and what's stored in the variable is `"25"`, not `25`. If you then try to do arithmetic with it, Python will stop you.
+
+```python
+age = input("How old are you? ")
+years_until_retirement = 65 - age   # TypeError
+```
+
+The fix is **explicit type conversion**: you tell Python exactly what the type should be.
 
 ```python
 age = int(input("How old are you? "))
+years_until_retirement = 65 - age   # works
 ```
 
-### The trade-off: convenience versus control
+`int()` converts its argument to an integer. `float()` converts to a float. `str()` converts to a string. These are not operators — they're functions that return a new value of the specified type.
 
-Implicit conversion is fast. You write less code. For common cases like mixing integers and floats, it does the right thing.
-
-But implicit conversion is also silent. If you're not paying attention, the type changes happen without you noticing. And sometimes the "right thing" is not what you wanted. You meant true division but got floor division. You meant to concatenate strings but got a type error instead.
-
-Explicit conversion is verbose. You write `int()` and `float()` and `str()` every time. But the code is honest. Anyone reading it sees exactly where a type change happens. And you can't be surprised by a conversion you wrote yourself.
-
-### Worked example — reading and converting user input
-
-You're writing a program that reads a person's height in centimeters and converts it to meters and remaining centimeters.
+Some conversions are lossy and Python will do them anyway if you ask explicitly:
 
 ```python
-height_cm = int(input("Height in centimeters: "))
-meters = height_cm // 100
-remaining_cm = height_cm % 100
-print(f"{meters}m {remaining_cm}cm")
+>>> int(5.9)
+5
 ```
 
-Input: `193`
-Output: `1m 93cm`
+`int(5.9)` is `5`, not `6`. The fractional part is **truncated** — cut off — not rounded. If you want rounding, use `round()`. This is a common mistake: assuming `int()` rounds. It doesn't. It cuts.
 
-Notice three things:
-1. `input()` reads as a string. We immediately convert with `int()`.
-2. `//` gives us the integer part (how many complete meters).
-3. `%` gives us the remainder (leftover centimeters).
+<!-- → [TABLE: explicit conversion functions — int(), float(), str(), round() — columns: function, what it does, example input, example output, common mistake] -->
 
-Together, these two operators — floor division and modulo — split one number into a quotient and a remainder.
-
-### Common misconceptions
-
-**int() rounds, but it doesn't.** `int(5.9)` is `5`, not `6`. The fractional part is cut off (truncated), not rounded. Use `round()` if you want rounding.
-
-**String concatenation is not addition.** `"5" + 5` fails. You must convert explicitly: `"5" + str(5)` gives `"55"`, but `int("5") + 5` gives `10`. Different operations, different results.
-
-**Type errors are not bugs; they're the system protecting you.** When Python says "can't add a string and an integer," it's not being difficult. It's refusing to guess what you meant.
+The design principle here is that Python is explicit by preference. When a conversion is unambiguous and lossless, it happens automatically (int to float). When it would require a choice — which of several possible meanings do you want? — Python makes you choose.
 
 ---
 
-## Concept 3 — Division: three operators, three different meanings
+## Division: Three Operators for Three Different Meanings
 
-### Cold open: why 7 / 4 is not 1
+Division is the place where most arithmetic surprises live.
 
-In a calculus class in 1987, a student writes code on a computer.
+The problem is that "division" doesn't mean one thing. It means at least three, depending on context:
+
+- The **exact** answer, including the decimal. Seven divided by four is 1.75.
+- The **quotient** — how many complete groups. Seven divided by four is 1, with something left over.
+- The **remainder** — what's left over. Seven divided by four leaves a remainder of 3.
+
+Python gives you a separate operator for each meaning.
+
+`/` is **true division**. Always returns a float. Always gives the exact answer.
 
 ```python
-result = 7 / 4
+>>> 7 / 4
+1.75
 ```
 
-She expects `1` — the integer answer, the quotient without the remainder.
-
-She gets `1.75`.
-
-"That's wrong," she says. "Seven divided by four is one."
-
-The computer didn't make a mistake. She and the computer disagree about what "division" means. In her elementary school, division gave a quotient and a remainder. Seven divided by four is one with remainder three. In Python (and in algebra), division gives an exact answer in decimal form: 1.75.
-
-Python offers three operators to cover all three meanings:
-
-- `/` **true division**: gives the exact answer as a decimal. `7 / 4 = 1.75`.
-- `//` **floor division**: gives the quotient, rounded down to the nearest integer. `7 // 4 = 1`.
-- `%` **modulo**: gives the remainder. `7 % 4 = 3`.
-
-They're often used in pairs. If you know how many complete groups fit in a total, that's floor division. If you know how much is left over, that's modulo.
-
-### Integer division and the division pair
-
-In many real programs, you don't care about the decimal answer. You care about "how many complete units?" and "how much is left?"
-
-If you have 193 centimeters of height, how many meters is that? `193 // 100 = 1`. One complete meter.
-
-How many centimeters left? `193 % 100 = 93`. Ninety-three centimeters remaining.
-
-Together, floor division and modulo split a number: `193 = 1 * 100 + 93`.
-
-In general: if `n = q * d + r` (where `q` is quotient, `r` is remainder, `d` is divisor), then:
-- `q = n // d`
-- `r = n % d`
-
-### The trade-off: decimal precision versus integer simplicity
-
-True division (`/`) is mathematically precise. It gives you the exact answer. For money calculations, measurements, and physics, precision matters.
-
-But for counting — "how many complete groups?" — integer division is clearer. There's no decimal point to confuse things. And for a computer, integers are exact. Floats can have rounding errors (we'll meet those soon).
-
-### Worked example — a clock calculation
-
-You have 340 minutes of driving time ahead of you. You're leaving at 13:25 (1:25 PM). When do you arrive?
+`//` is **floor division**. Returns an integer (when both operands are integers). Gives the quotient, rounded down toward negative infinity.
 
 ```python
-current_hour = 13
-current_minute = 25
-trip_minutes = 340
+>>> 7 // 4
+1
+```
 
-# Convert current time to total minutes
+`%` is **modulo**. Returns the remainder after floor division.
+
+```python
+>>> 7 % 4
+3
+```
+
+These last two — `//` and `%` — are a pair. They split a number completely. If you divide 7 by 4, you get 1 complete group of 4, and 3 left over. Together they satisfy: `n = (n // d) * d + (n % d)`. The quotient times the divisor, plus the remainder, gives back the original number. Check: `1 * 4 + 3 = 7`. ✓
+
+<!-- → [INFOGRAPHIC: visual diagram showing 7 divided by 4 — a row of 7 blocks, grouped into one complete group of 4 (labeled "quotient = 1, from 7 // 4") and 3 leftover (labeled "remainder = 3, from 7 % 4") — student should see the geometric intuition for floor division and modulo as complementary operations] -->
+
+This pair shows up everywhere in practical programming. A clock uses it: 193 minutes is `193 // 60 = 3` hours and `193 % 60 = 13` minutes. A unit converter uses it: 193 centimeters is `193 // 100 = 1` meter and `193 % 100 = 93` centimeters. Change-making uses it: $1.37 is `137 // 25 = 5` quarters and `137 % 25 = 12` cents remaining, then `12 // 10 = 1` dime and `12 % 10 = 2` cents remaining, and so on.
+
+The key insight is that floor division and modulo answer different questions about the same operation. When you write `//`, your implicit question is "how many complete units?" When you write `%`, your implicit question is "what's left over?" If you find yourself using one without the other, that's often a signal to stop and think about whether you've answered both questions you actually needed to answer.
+
+### A Worked Example: Clock Arithmetic
+
+You leave home at 14:35 (2:35 PM). The drive is 347 minutes. When do you arrive?
+
+```python
+current_hour = 14
+current_minute = 35
+trip_minutes = 347
+
+# Convert current time to total minutes since midnight
 total_minutes = current_hour * 60 + current_minute
 
 # Add trip time
 arrival_minutes = total_minutes + trip_minutes
 
-# Convert back to hours and minutes
+# Split back into hours and minutes
 arrival_hour = arrival_minutes // 60
 arrival_minute = arrival_minutes % 60
 
@@ -355,60 +201,48 @@ arrival_hour = arrival_hour % 24
 print(f"Arrival: {arrival_hour}:{arrival_minute:02d}")
 ```
 
-Step by step:
-- Current time: `13 * 60 + 25 = 805` minutes since midnight.
-- After trip: `805 + 340 = 1145` minutes.
-- Hours: `1145 // 60 = 19` (7 PM).
-- Minutes: `1145 % 60 = 5`.
-- Wraparound: `19 % 24 = 19` (still on the same day).
-- Output: `Arrival: 19:05`
+Trace through it:
+- `14 * 60 + 35 = 875` minutes since midnight.
+- `875 + 347 = 1222` minutes since midnight.
+- `1222 // 60 = 20`. `1222 % 60 = 22`.
+- `20 % 24 = 20` (still same day; this line handles midnight wraparound).
+- Output: `Arrival: 20:22`
 
-The modulo at the end handles the case where the arrival hour exceeds 23 (late evening or next day).
+Every step uses the same small set of tools: multiplication to convert units, `//` and `%` to split into hours and remainder, and modulo a second time to wrap around the 24-hour clock. The same pair of operators, doing the same job, nested inside each other.
 
-### Common misconceptions
-
-**Division always gives a float in Python 3.** In older Python, `/` was floor division by default. Not anymore. `/` is always true division. This breaks old code. Use `//` if you want integer division.
-
-**Modulo works with negative numbers, but not the way you think.** `7 % 4 = 3`, but `-7 % 4 = 1` (Python rounds toward negative infinity, not toward zero). For counting problems, this rarely matters. But don't be surprised if a calculation with negative numbers gives an unexpected remainder.
-
-**The pair is always floor division and modulo.** If you use `//`, also use `%` at some point (or you should have used `/` instead). Mixing them tells you the calculation is complete.
+<!-- → [FIGURE: step-by-step annotated trace of the clock calculation — each line of the program with its current variable values shown alongside — helps student see how data flows through the expressions] -->
 
 ---
 
-## Integration — the shell, the operators, and the calculation
+## The Python Shell as a Laboratory
 
-Return to the cold open: the Python shell. You're exploring how types work, and you've written several expressions.
+Everything in this chapter can be explored in a Python shell. A shell is a REPL: Read, Evaluate, Print, Loop. You type one expression, hit Enter, and see the result. Type another. See the result. The loop runs until you quit.
 
-```python
->>> 2 ** 10
-1024
->>> 2.0 ** 10
-1024.0
->>> 7 / 4
-1.75
->>> 7 // 4
-1
->>> 7 % 4
-3
->>> "5" + 5
-Traceback (most recent call last):
-  File "<stdin>", line 1, in <module>
-TypeError: can only concatenate str (not "int") to str
->>> int("5") + 5
-10
-```
+This is the most efficient learning tool available to you. When you're not sure whether `int(5.9)` truncates or rounds, type it and find out. When you want to test whether `2 ** 3 ** 2` is 512 or 64, type it. When you want to understand what `%` does with negative numbers (it does something that surprises most people), type `−7 % 4` and see `1`, not `-3`, and then think about why.
 
-Now you understand the pattern. Each line demonstrates one principle:
+The shell rewards curiosity. You can break nothing. You can run nothing on a live system. Every hypothesis costs you two seconds to test.
 
-1. **Precedence and exponentiation.** The `**` operator has the highest precedence. `2 ** 10` evaluates first.
+The habit to build: any time you write an expression you're not certain about, test it in the shell first. Not because you're unsure of Python — because the cost of verifying is so low and the cost of being wrong in a larger program is so high.
 
-2. **Type conversion through operators.** Using `/` instead of `//` converts the result to a float. The integer `2` became `2.0` in the exponent, so the result became `1024.0`.
+---
 
-3. **Division operators.** True division (`/`), floor division (`//`), and modulo (`%`) answer three different questions: "What's the exact answer?", "How many complete units?", and "What's left over?"
+## What the Chapter Adds Up To
 
-4. **Type errors as a feature.** You can't add a string and an integer. Python stops and tells you why. But once you convert the string to an integer, the addition works.
+Start with what you can see: an expression presses a value out of its components. The machinery underneath has three layers.
 
-The shell is your laboratory. You type an expression, hit Enter, see what happens, and adjust. This is how you learn to predict what Python will do.
+The first layer is **operator precedence**. Python evaluates higher-precedence operators before lower-precedence ones. The hierarchy matches algebra. Parentheses override everything. If in doubt, write the parentheses explicitly — they cost nothing and make the order visible.
+
+The second layer is **types and conversion**. Python tracks whether a value is an integer, a float, or a string. When you mix types in arithmetic, Python converts automatically toward the more general type — integers become floats when necessary. When the conversion would be ambiguous, Python refuses with a TypeError. When you need to convert explicitly, use `int()`, `float()`, or `str()`. Remember that `int()` truncates, not rounds.
+
+The third layer is **division's three meanings**. `/` gives you the exact answer as a float. `//` gives you the quotient as an integer. `%` gives you the remainder. The last two work as a pair — use them together to split a number into complete units and leftovers.
+
+Behind all three layers is the same principle: Python does exactly what the rules say, not what you might have assumed. The gap between assumption and rule is where bugs live. Close that gap by understanding the rules well enough that nothing surprises you.
+
+---
+
+*What would change my mind:* If I found a case where Python's operator precedence diverges from mathematical convention in a way that affects everyday code, I'd revise the chapter's confidence that the hierarchy "just works" for programmers with algebra backgrounds. So far I haven't found one.
+
+*Still puzzling:* Why the designers of Python 3 made `/` always return a float, even for `4 / 2 = 2.0`. The mathematical argument is clean — division produces a real number — but the pedagogical cost is real: students who learned elementary school division (quotient plus remainder) have to unlearn a default assumption before they can use `/` correctly. I don't yet have the most elegant way to frame that trade-off in a single sentence.
 
 ---
 
@@ -416,19 +250,16 @@ The shell is your laboratory. You type an expression, hit Enter, see what happen
 
 ### Warm-up
 
-**Exercise 2.1** *(Evaluate expressions using precedence.)*
-
-Without using Python, evaluate each expression. Write the steps as if you were hand-calculating.
+**Exercise 2.1** *(Predict before you run.)*
+Without using Python, evaluate each expression. Write out the steps using precedence rules.
 
 (a) `2 + 3 * 4`
 (b) `(2 + 3) * 4`
 (c) `10 - 4 // 2`
 (d) `2 ** 3 ** 2`
-(e) `(2 ** 3) ** 2`
 
-**Exercise 2.2** *(Type conversions.)*
-
-For each expression, predict the type and value before evaluating. Then check in a Python shell.
+**Exercise 2.2** *(Type prediction.)*
+For each expression, predict the type and value before checking in a shell.
 
 (a) `int(5.9)`
 (b) `float(5)`
@@ -436,8 +267,7 @@ For each expression, predict the type and value before evaluating. Then check in
 (d) `int("5") + int("3")`
 
 **Exercise 2.3** *(Division operators.)*
-
-For each expression, predict the result.
+Predict the result of each expression.
 
 (a) `15 / 4`
 (b) `15 // 4`
@@ -446,27 +276,14 @@ For each expression, predict the result.
 
 ### Application
 
-**Exercise 2.4** *(Unit conversion with floor division and modulo.)*
-
-Write a program that reads a number of total seconds and converts it to hours, minutes, and seconds. For example:
-
-Input: `3661`
-Output: `1 hour 1 minute 1 second`
-
-Hint: Use `//` to get complete hours and minutes. Use `%` to get the remainder.
+**Exercise 2.4** *(Unit conversion.)*
+Write a program that reads a number of total seconds and converts it to hours, minutes, and seconds. Input `3661` should produce `1 hour 1 minute 1 second`. Use `//` for complete units and `%` for remainders.
 
 **Exercise 2.5** *(Temperature conversion.)*
+Write a program that reads a temperature in Fahrenheit and prints it in Celsius: `C = (F - 32) * 5/9`. Test with `32` (should give `0`), `212` (should give `100`), and `98.6` (should give approximately `37`).
 
-Write a program that reads a temperature in Fahrenheit and prints it in Celsius using the formula: `C = (F - 32) * 5/9`.
-
-Test your program with:
-- `F = 32` (should give 0)
-- `F = 212` (should give 100)
-- `F = 98.6` (should give about 37)
-
-**Exercise 2.6** *(Type consistency.)*
-
-The following program has a type mismatch. Identify where the problem occurs and fix it using explicit type conversion.
+**Exercise 2.6** *(Fix the type mismatch.)*
+The following program has a type error. Identify where it occurs and fix it with explicit conversion.
 
 ```python
 num_str = input("Enter a number: ")
@@ -476,91 +293,17 @@ print(result)
 
 ### Synthesis
 
-**Exercise 2.7** *(Expense splitting.)*
+**Exercise 2.7** *(Bill splitting.)*
+Write a program that reads a restaurant bill as a float and a number of diners as an integer, then prints each person's share to two decimal places. Test with $43.21 split among 3 people.
 
-Write a program that reads a restaurant bill amount and splits it among a group. The program should:
-
-1. Read the total bill (as a float)
-2. Read the number of people (as an integer)
-3. Calculate the amount per person
-4. Print the result with two decimal places
-
-Test with a bill of $43.21 split among 3 people. The result should be $14.40 per person (rounded).
-
-**Exercise 2.8** *(Precedence in a real formula.)*
-
-The body mass index (BMI) is calculated as: `weight_kg / (height_m ** 2)`.
-
-Write a program that reads weight in kilograms and height in meters, calculates BMI, and prints the result rounded to one decimal place.
-
-Test with:
-- Weight = 70 kg, Height = 1.75 m (BMI should be about 22.9)
+**Exercise 2.8** *(BMI calculator.)*
+BMI is `weight_kg / (height_m ** 2)`. Write a program that reads weight in kilograms and height in meters and prints BMI to one decimal place. Test with 70 kg and 1.75 m (should give approximately 22.9). Pay attention to the parentheses.
 
 ### Challenge
 
-**Exercise 2.9** *(Change-making algorithm.)*
+**Exercise 2.9** *(Change-making.)*
+Write a program that reads a dollar amount as a float and calculates the minimum number of coins (dollars, quarters, dimes, nickels, pennies) needed to make that amount. Convert to cents (integer) first, then work down through denominations with `//` and `%`. Test with $1.24.
 
-Write a program that reads a change amount in dollars (as a float) and calculates how many dollars, quarters (25¢), dimes (10¢), nickels (5¢), and pennies (1¢) to dispense.
-
-Hint: Convert to cents (an integer) first, then use `//` and `%` repeatedly to count each denomination.
-
-Test with: $1.24 should give 1 dollar, 0 quarters, 2 dimes, 0 nickels, 4 pennies.
-
-**Exercise 2.10** *(Precedence challenge.)*
-
-Evaluate without Python:
-
-`3 + 4 * 2 ** 3 / 2 - 5`
-
-Write out all the steps. Then verify with Python.
-
----
-
-## Chapter summary
-
-You now understand the hidden rules of expressions. Operator precedence decides which calculations happen first — and parentheses let you override that decision and make your intent visible.
-
-You understand types: integers, floats, and strings. You know that Python converts types automatically sometimes (mixing integers and floats), and that sometimes it refuses (trying to subtract a string from an integer). And you know how to take control with explicit conversion: `int()`, `float()`, `str()`.
-
-You understand division. True division `/` gives a decimal answer. Floor division `//` gives the integer quotient. Modulo `%` gives the remainder. Together, floor division and modulo split a number completely: if you divide 193 by 100, you get 1 complete hundred and 93 left over. That's what every clock, every unit converter, and every change-making algorithm is built on.
-
-And you've learned the Python shell — the REPL, where you type one line at a time and see the result immediately. When you're not sure what an expression will do, the shell is your test bench.
-
-What you should now be able to teach a friend: why `3 + 4 * 5` is not the same as `(3 + 4) * 5`, why `/` and `//` give different answers, and why Python refuses to add a string and an integer.
-
----
-
-## Connections forward
-
-Chapter 3 will introduce you to objects and methods — the idea that values in Python are not just bare numbers and strings, but things that know how to do work. An integer, for instance, has methods you can call on it. A string can be asked for its length.
-
-Then in Chapter 4 you will learn about decisions: `if` statements that let your program choose different paths based on what's true and what's false. Those decisions depend on comparisons: is `x > 5`? Did the user type `"yes"`? And comparison expressions produce a Boolean value — `True` or `False`. The precedence rules you learned here extend to Boolean operators too.
-
-The REPL you learned to use in this chapter will be your tool for exploring every concept ahead. When you get stuck, open the shell and try the thing. See what Python says.
-
----
-
-## Claude Code
-
-This section shows how to use Claude Code to explore and test the concepts from this chapter: how operators combine, how types convert, and how division operators split a number into quotient and remainder.
-
-> **Claude Code prompt.**
->
-> "I have 347 minutes of driving ahead of me. I'm leaving at 14:35 (2:35 PM). Write a Python function that calculates my arrival time on a 24-hour clock, handling wraparound past midnight. The function should take three parameters: `hour` (integer 0–23), `minute` (integer 0–59), and `minutes_to_add` (integer, any size). Return a tuple `(arrival_hour, arrival_minute)`. Use floor division (`//`) to extract hours from total minutes. Use modulo (`%`) to extract remaining minutes and to handle wraparound past midnight. Show the calculation steps so I can follow the operator precedence and type conversions. Test with my example (14:35 + 347 minutes) and three others: 23:50 + 20 minutes (wraps to next day), 12:00 + 240 minutes (exactly 4 hours), and 0:30 + 1410 minutes (wraps across midnight)."
-
-**What to expect.** Claude Code will write a function that demonstrates three core chapter concepts working together: operator precedence (in the arithmetic expression `hour * 60 + minute + minutes_to_add`), type consistency (integers throughout), and the division pair (`//` and `%`) splitting one number into quotient and remainder. The function will handle the edge case where adding minutes crosses midnight by using modulo on the final hour. Each test case shows a different operator behavior — exact hour boundaries, wraparound, and large minute values — so you see the machinery at work.
-
-**Stretch.** Ask Claude Code to write a program that reads a restaurant bill (float), splits it among a group (integer), and prints the per-person cost. Then ask it to compare the output of `/` (true division) versus `//` (floor division) and explain why you'd choose one or the other for money calculations. This reinforces type conversion, operator choice, and the trade-off between decimal precision and integer simplicity.
-
----
-
-What would change my mind: If I discovered a case where Python's operator precedence differs from mathematical convention, or a case where implicit type conversion causes data loss in a common operation (beyond the documented float precision issues), I would revise the chapter's confidence in those mechanisms.
-
-Still puzzling: Why Python chose to make `/` always return a float, even `4 / 2 = 2.0`. The design decision makes sense (true division, mathematical correctness), but it breaks the pattern students learned in elementary school and creates a minor cognitive friction. I haven't yet found the most elegant way to teach why this choice was made.
-
----
-
-Tags: operators, precedence, type-conversion, expressions, division, modulo, Python-shell, REPL, casting
 ---
 
 ## LLM Exercise — Chapter 02: Expressions (Text Adventure Project)
@@ -629,10 +372,9 @@ discipline).
 
 **Preview of next chapter:** Chapter 3 covers objects. You'll realize every stat IS an object and start calling methods on strings (`.upper()`, `.lower()`, `.strip()`) for the player-name normalization.
 
-
 ---
 
-##  AI Wayback Machine
+## AI Wayback Machine
 
 **Run this:**
 
