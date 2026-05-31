@@ -1,403 +1,181 @@
 # Chapter 14 — Files
+*The membrane between your program and the world — and why close() is not optional.*
 
-## TL;DR
-
-Files let your code talk to the disk — reading data that persists across sessions, writing results that outlive the program. The machinery is simple: `open()` to connect, read/write methods to move bytes, `close()` to flush the buffer. The complication is that disk I/O fails in ways memory operations do not. This chapter teaches you to write to the disk reliably and read from it carefully, handle the errors that come, and parse the two most common formats: plain text and CSV.
-
-## Three title options
-
-1. **Files and Persistence: How Code Reaches the Disk**
-2. **Reading and Writing: The Bridge Between Memory and Storage**
-3. **Files as Sequences: From Buffer to Disk, Error by Error**
-
----
-
-## Cold open
-
-You are exporting three months of sensor data from a research station — temperature, humidity, timestamps, 47,000 readings in all. The data lives in a database. Your job is to write it to a CSV file so an analyst in another city can graph it. You open the editor, type `outfile = open("sensor_readings.csv", "w")`, and your code begins to flow from the fast memory of your computer to the slow, permanent storage of the disk.
-
-This is different from everything you have done so far.
-
-When you print to the console, you see the result instantly. When you assign a variable, it sits in RAM. When you do arithmetic, the calculation happens and you use the result before you blink. But now you are handing your data to a file system. The file system has its own schedule. It buffers your writes. It schedules disk access. It makes promises about durability that you have to keep.
-
-You finish writing 47,000 rows to the CSV. Your code ends. Your program exits. And nothing has touched the disk yet — your data is still in the buffer, waiting. That is why the next line of code is not `print()` but `outfile.close()`. The close tells the operating system: *write what you are holding to the disk right now, and make it stick*.
-
-This chapter is about that boundary — the place where your program meets the filesystem, where RAM hands off to the permanent world. It teaches you how to read from files you have written, how to write to files you have created, how to handle the errors that come when files do not exist or have the wrong format, and how to parse CSV so you can turn spreadsheet data into Python structures your code can work with.
-
-## Learning objectives
-
-By the end of this chapter you will be able to:
-
-- **Open** a file for reading or writing and understand what mode means.
-- **Read** from a file using `read()`, `readline()`, and `readlines()`, and understand the difference.
-- **Write** to a file using `write()`, understand buffering, and know why `close()` is required.
-- **Specify** a file path on your operating system (Mac, Linux, Windows) correctly.
-- **Parse** a CSV file into a Python list-of-lists data structure.
-- **Handle** the common exceptions that come from file I/O: `FileNotFoundError`, `ValueError`, `IndexError`.
-- **Use** the `with` statement (context manager) to guarantee that a file closes even when an exception fires.
-
-## Prerequisites
-
-- Loops (`for` and `while`).
-- Lists and list indexing.
-- String methods like `.strip()` and `.split()`.
-- Exception handling with `try` and `except`.
-- How your operating system organizes folders (file paths).
-
----
-
-## Concept 1 — Opening, reading, closing: the three-step dance
-
-A file is a sequence of bytes stored on your computer's disk, named and organized into folders. When you want to use that data, Python does not just hand it to you. You have to ask for it explicitly, using the `open()` function.
-
-### What open() does
-
-The `open()` function takes a filename (and optionally a mode) and returns a **file object** — a bridge between your Python program and the bytes on the disk.
+Here is a program that runs perfectly and loses all its output:
 
 ```python
-infile = open("sensor_data.txt")
+outfile = open("results.txt", "w")
+outfile.write("47,000 sensor readings processed.\n")
+# program ends
 ```
 
-This line tells Python: *find a file named sensor_data.txt in the same folder as my code, connect to it, prepare to read it*. The file object `infile` is now your interface to those bytes.
+The string was written. You can verify this — Python executed `write()` without error. But if you open `results.txt`, it may be empty. The data never reached the disk. It was sitting in a buffer in memory when the program ended, and when the program ended, the buffer was discarded.
 
-By default, `open()` opens a file for reading only. If the file does not exist, `open()` raises a `FileNotFoundError`.
-
-### Reading the whole file: read()
-
-The simplest way to read is to grab everything at once.
+The fix is one line:
 
 ```python
-infile = open("log.txt")
-contents = infile.read()
+outfile = open("results.txt", "w")
+outfile.write("47,000 sensor readings processed.\n")
+outfile.close()
+```
+
+`close()` flushes the buffer — forces every byte in memory to actually land on disk — and releases the file connection. Without it, the file is a rumor, not a record.
+
+Everything in this chapter follows from this one property of disk I/O: writing to disk is not instantaneous. The operating system batches writes for efficiency. Your code has to explicitly tell it when the batch is complete. Understanding why `close()` exists — and why you should almost always replace it with a `with` statement that closes automatically — is the thread running through the whole chapter.
+
+---
+
+## The Three-Step Pattern: Open, Use, Close
+
+Every file operation in Python follows the same pattern:
+
+1. **Open** the file with `open()`, which returns a file object.
+2. **Use** the file object to read or write.
+3. **Close** the file with `.close()`, which flushes and releases.
+
+```python
+infile = open("log.txt")        # open
+contents = infile.read()         # use
+infile.close()                   # close
 print(contents)
-infile.close()
 ```
 
-The `read()` method reads the entire file and returns it as a single string. The string contains newline characters (`\n`) wherever the file had line breaks. Then you close the file to release the connection.
+The `open()` function takes a filename and returns a **file object** — a bridge between your Python program and the bytes on disk. By default it opens for reading. If the file doesn't exist, it raises `FileNotFoundError` immediately.
 
-> **Prompt for Claude.** "Write a Python program that opens a file named 'quote.txt', reads its contents into a string, prints the string, and closes the file."
+### Three Ways to Read
 
-> **Tests to validate.**
-> - If quote.txt contains "The truth is\nlike a lion;\nyou do not have to defend it.\n— it defends itself.", the output should print all three lines.
-> - The program should not crash if run twice in a row.
-> - After running, the file should close (test this by modifying the file and running again without restarting Python).
+Once you have a file object, you have three reading options:
 
-### Reading line by line: readline() and readlines()
-
-Often you do not want the whole file at once. You want one line at a time, or all lines as a list.
-
-`readline()` reads one line (from the current position to the next `\n`), returns it as a string (including the `\n`), and moves the cursor forward. Call it again and you get the next line. Useful for large files you want to process in chunks.
-
-`readlines()` reads all lines and returns them as a list. Each element is a line, including the trailing `\n`.
+`read()` pulls the entire file into a single string:
 
 ```python
-# Example: count lines in a file
-infile = open("poem.txt")
-lines = infile.readlines()
-infile.close()
-print(f"The file has {len(lines)} lines.")
+with open("poem.txt") as f:
+    entire_text = f.read()
 ```
 
-One wrinkle: the newline character at the end of each line usually needs to go away. Use `.strip()` to remove leading and trailing whitespace, including the newline.
+`readlines()` reads all lines into a list, each line including its trailing `\n`:
 
 ```python
-infile = open("grades.txt")
-lines = infile.readlines()
-infile.close()
-
-for line in lines:
-    line = line.strip()  # Remove \n and any spaces
-    print(f"Grade: {line}")
+with open("grades.txt") as f:
+    lines = f.readlines()
+# ['Alice,92\n', 'Bob,88\n', 'Carol,95\n']
 ```
 
-> **Prompt for Claude.** "Write a Python program that (1) opens 'numbers.txt', (2) uses readlines() to read all lines, (3) for each line, strip the newline character, convert to an integer, and add to a list, (4) compute the average of the list, and (5) close the file. Then print the average."
-
-> **Tests to validate.**
-> - If numbers.txt contains "5\n10\n15\n", the average should be 10.0.
-> - If the file is empty, the program should handle division by zero (or test that this case is safe).
-> - The program should work for files with leading/trailing spaces: "  5  \n10\n15\n".
-
-### Trade-off: speed vs. memory
-
-`read()` is fast and simple. It is also dangerous for gigabyte-sized files — you would load the entire gigabyte into RAM at once. `readline()` or reading in a loop is slower but uses constant memory. Choose based on file size.
+Iterating over the file object directly reads one line at a time, which is the right choice for large files:
 
 ```python
-# For small files (< 10 MB)
-contents = infile.read()
-
-# For large files
-for line in infile:
-    process(line)
+with open("huge_log.txt") as f:
+    for line in f:
+        process(line.strip())
 ```
 
-Notice the second example: you can iterate over a file object directly. Python treats a file as an iterable, yielding one line at a time.
+The `with` statement in all three examples is the context manager — more on that shortly. The `.strip()` call removes the trailing `\n` that `readlines()` and iteration include on every line.
 
-### Closing a file
+<!-- → [TABLE: three reading methods compared — rows: read(), readlines(), iteration — columns: method, returns, best for, memory cost — student should see at a glance which to reach for based on file size and whether they need the whole thing at once] -->
 
-When you call `infile.close()`, you tell Python: *flush any pending reads, release the file handle, let the operating system know I am done*. Once closed, the file object is useless — calling `.read()` on it raises an error.
-
-Close is not polite; it is required. A file left open consumes a system resource (a file descriptor). Open too many files and your program cannot open any more. On some systems, unsaved changes to a file may not hit the disk until the file is closed.
+**The size tradeoff.** `read()` is simple but loads the entire file into RAM. A 2 GB log file loaded with `read()` uses 2 GB of memory. Iterating line by line uses constant memory regardless of file size. For files under a few megabytes, use whichever is clearest. For larger files, always iterate.
 
 ---
 
-## Concept 2 — Writing and modes: creating and modifying files
+## Writing: Modes and What They Destroy
 
-If reading is about pulling data from the disk, writing is about pushing it there.
-
-### Opening a file for writing: mode='w'
-
-By default, `open()` opens a file in read mode (`'r'`). To write, pass a second argument:
+To write, you pass a **mode** to `open()`:
 
 ```python
-outfile = open("output.txt", 'w')
-outfile.write("Hello, disk.")
+outfile = open("output.txt", "w")    # write mode
+outfile.write("first line\n")
+outfile.write("second line\n")
 outfile.close()
 ```
 
-The mode `'w'` means *write*. Important: if the file already exists, `'w'` erases it completely and starts over. This is destructive. Use it only when you mean to overwrite.
+Mode `"w"` is **write** — it creates the file if it doesn't exist and **erases it if it does**. This is not recoverable. The previous contents are gone the moment you open with `"w"`.
 
-The `write()` method takes a string and writes it to the file buffer. Note: `write()` does not add a newline. If you want line breaks, you must insert them explicitly using `\n`.
-
-```python
-outfile = open("output.txt", 'w')
-outfile.write("Line 1\n")
-outfile.write("Line 2\n")
-outfile.write("Line 3")  # No newline at the end
-outfile.close()
-```
-
-If you read output.txt, you get three lines. The third has no trailing newline.
-
-### Appending: mode='a'
-
-If you want to add to the end of an existing file without erasing it, use append mode:
+Mode `"a"` is **append** — it opens the file and positions the cursor at the end, leaving existing content intact:
 
 ```python
-outfile = open("log.txt", 'a')
+outfile = open("log.txt", "a")
 outfile.write("New entry\n")
 outfile.close()
 ```
 
-Mode `'a'` opens the file, moves the cursor to the end, and lets you `write()`. The file is not erased.
+Mode `"r"` is **read** (the default) — it opens for reading, raises `FileNotFoundError` if the file doesn't exist.
 
-### The three modes summarized
+| Mode | If file exists | If file doesn't exist |
+|------|---------------|----------------------|
+| `"r"` | Open for reading | `FileNotFoundError` |
+| `"w"` | **Erase it**, then write | Create it |
+| `"a"` | Append to end | Create it |
 
-| Mode | Meaning | If file exists | If file does not exist |
-|------|---------|---|---|
-| `'r'` | Read | Open it | Raise `FileNotFoundError` |
-| `'w'` | Write (erase) | Erase it and start over | Create it |
-| `'a'` | Append | Open at end | Create it |
+The destructive behavior of `"w"` is the most common cause of accidental data loss in file I/O. Before you open anything with `"w"`, ask: do I actually want to erase whatever was there?
 
-### Buffering: why close() is mandatory
-
-When you call `outfile.write("Hello")`, Python does not write immediately to the disk. It stores the data in a **buffer** — a piece of temporary memory. The operating system batches writes to the disk for efficiency.
-
-When you call `outfile.close()`, the buffer is flushed: every byte sitting in memory is written to the disk and the connection closes.
-
-If your program crashes or your computer loses power before `close()` executes, the data in the buffer is lost. The file on disk will be incomplete or not exist.
-
-This is why you must **always close a file after writing**. No exceptions.
-
-```python
-# Careful: if the program crashes after write() but before close(),
-# the file will be empty
-outfile = open("important.txt", 'w')
-outfile.write("Important data")
-# ... CRASH HERE? Data lost.
-outfile.close()
-```
-
-> **Prompt for Claude.** "Write a Python program that (1) opens 'favorite_quotes.txt' in write mode, (2) writes three separate lines to it (use a loop if you like), (3) closes the file, (4) opens it again in read mode, (5) reads and prints all lines with `.readlines()`, and (6) closes it again."
-
-> **Tests to validate.**
-> - After running, the file should exist and contain exactly three lines.
-> - The second run should print the same three lines (confirming the file was not erased on the second open because we used read mode).
-> - If you comment out `outfile.close()` in the write section, the file may be empty or incomplete when you try to read it (run the test to see this happen).
+Two things `write()` does not do that beginners expect:
+1. It does not add a newline. If you want line breaks, you write `"\n"` explicitly.
+2. It does not write to disk immediately. The data goes into the buffer first.
 
 ---
 
-## Concept 3 — File paths, CSV parsing, and error handling
+## The Buffer and Why close() Is Not Optional
 
-So far we have assumed files are in the same folder as our code. Real life is messier.
+When you call `outfile.write("something")`, Python hands the string to the operating system's I/O buffer — temporary memory that collects writes before sending them to the physical disk. The OS does this for efficiency: disk writes are thousands of times slower than memory operations, so batching many small writes into one large disk operation is a significant performance win.
 
-### File paths
+The consequence: your data may not be on disk until you call `close()`. If your program ends, the OS crashes, or the power goes out before `close()` runs, the buffer is discarded and the file is incomplete or empty.
 
-A file lives in a folder. That folder lives in another folder. The chain of folders from the root of your disk to the file is the **path**.
+`close()` issues two instructions to the OS: flush the buffer (write everything in memory to disk right now) and release the file descriptor (the system resource that represents the open connection). Both matter.
 
-On Mac and Linux, paths use forward slashes and start from the root `/`:
-
-```python
-infile = open("/users/alice/desktop/data.txt")
-```
-
-On Windows, paths use backslashes (or forward slashes in Python):
-
-```python
-# Backslashes (escape them with another backslash)
-infile = open("c:\\users\\alice\\desktop\\data.txt")
-
-# Forward slashes (cleaner)
-infile = open("c:/users/alice/desktop/data.txt")
-```
-
-Relative paths (without a leading `/` or drive letter) are relative to the folder where your Python script lives:
-
-```python
-infile = open("data.txt")          # Same folder as script
-infile = open("data/input.txt")    # In a subfolder
-infile = open("../data/input.txt") # One folder up, then into data
-```
-
-### CSV: comma-separated values
-
-CSV is a simple, widespread format for tabular data. Each line is a record. Fields within a line are separated by commas.
-
-```
-Title,Author,Pages
-1984,George Orwell,268
-Jane Eyre,Charlotte Bronte,532
-Walden,Henry David Thoreau,156
-```
-
-Python does not parse CSV automatically. You have to read the file, split each line by commas, and build a list-of-lists.
-
-```python
-infile = open("books.csv")
-rows = infile.readlines()
-infile.close()
-
-data = []
-for row in rows:
-    row = row.strip()  # Remove \n
-    fields = row.split(",")  # Split by comma
-    data.append(fields)
-
-print(data)
-# [['Title', 'Author', 'Pages'],
-#  ['1984', 'George Orwell', '268'],
-#  ['Jane Eyre', 'Charlotte Bronte', '532'],
-#  ['Walden', 'Henry David Thoreau', '156']]
-```
-
-Notice that all fields are strings, even numbers. If you want to do arithmetic on the Pages column, you must cast to `int()`.
-
-**Etymology note:** CSV stands for *comma-separated values*. The name is literal: commas separate the values. If a field itself contains a comma, you run into ambiguity. Real CSV parsers (like Python's `csv` module) handle this using quotation marks. For this chapter, assume no commas inside fields.
-
-> **Prompt for Claude.** "Write a Python program that (1) opens 'student_grades.csv' (assumed to exist with lines like 'Alice,92,88,95'), (2) reads all lines, (3) for each line, strips the newline, splits by comma, extracts the first element (name) and the last three (three test scores), (4) computes the average of the three scores, (5) prints the name and average, and (6) closes the file. Example output: 'Alice: 91.67'."
-
-> **Tests to validate.**
-> - If the CSV has "Bob,75,80,85\n", the average should be 80.0.
-> - The program should handle the header line gracefully (skip it or error checking).
-> - Scores should be converted to `float` for averaging, not left as strings.
+<!-- → [FIGURE: diagram showing the buffer between program memory and disk — write() puts data in buffer, close() flushes buffer to disk — two scenarios: program ends normally (close() called, buffer flushed, data safe) and program crashes (close() not reached, buffer discarded, data lost) — student should see why close() is required, not optional] -->
 
 ---
 
-## Error handling: when files disappoint
+## The context manager: `with` Replaces Every `close()`
 
-File I/O is where Python's error handling becomes essential. Reading and writing can fail in ways memory operations cannot.
+The problem with explicit `close()` calls is that they can be skipped. An exception between `open()` and `close()` will jump over the `close()` entirely, leaving the file open indefinitely.
 
-### FileNotFoundError
-
-The most common error: you ask for a file that does not exist.
+The `with` statement solves this:
 
 ```python
-infile = open("missing.txt")  # Raises FileNotFoundError
-```
-
-Wrap it in a try-except:
-
-```python
-try:
-    infile = open("grades.txt")
-    lines = infile.readlines()
-    infile.close()
-except FileNotFoundError:
-    print("File not found. Please check the filename.")
-```
-
-### ValueError and IndexError during parsing
-
-When you parse CSV or other structured data, the file format might be wrong. A line might be missing fields, or a field that should be a number might be text.
-
-```python
-# File contents:
-# 5 apples
-# 3 oranges
-# broken line
-
-infile = open("fruit.txt")
-for line in infile:
-    parts = line.strip().split()
-    qty = int(parts[0])  # ValueError if parts[0] is not a number
-    item = parts[1]      # IndexError if the line has no second word
-    print(f"{qty} {item}")
-infile.close()
-```
-
-When the program hits the line "broken line", it crashes. Handle it:
-
-```python
-try:
-    infile = open("fruit.txt")
-    for line in infile:
-        parts = line.strip().split()
-        qty = int(parts[0])
-        item = parts[1]
-        print(f"{qty} {item}")
-    infile.close()
-except (ValueError, IndexError) as error:
-    print(f"Format error: {error}")
-    infile.close()
-except FileNotFoundError:
-    print("File not found.")
-```
-
----
-
-## Integration: the context manager (with statement)
-
-There is a gotcha in the code above. If `int(parts[0])` raises a `ValueError`, the `except` block prints a message. But `infile.close()` inside the `except` happens only for that specific error. If some other error fires, `close()` might not run.
-
-The proper solution is the **context manager**, invoked with the `with` statement.
-
-```python
-with open("fruit.txt") as infile:
-    for line in infile:
-        parts = line.strip().split()
-        qty = int(parts[0])
-        item = parts[1]
-        print(f"{qty} {item}")
-```
-
-The `with` statement automatically closes the file when the indented block ends, even if an exception fires. You do not need to call `close()` explicitly. If an exception is raised inside the block, the file closes before the exception propagates.
-
-This is called **context management**. The `open()` function returns an object that manages the context of file access: it sets up the file on entry and tears it down on exit.
-
-In production code, always use `with`. It is shorter and safer.
-
-```python
-# Before: manual close (error-prone)
-infile = open("data.txt")
-data = infile.read()
-infile.close()
-
-# After: with statement (safe)
 with open("data.txt") as infile:
-    data = infile.read()
+    contents = infile.read()
 ```
 
-> **Prompt for Claude.** "Write a Python program using a `with` statement to: (1) open 'numbers.txt' for reading, (2) read all lines, (3) for each line, strip whitespace and convert to int, (4) sum all the integers, and (5) print the sum. The program should NOT call close() explicitly."
+When the indented block ends — whether normally or because an exception fired — Python automatically closes the file. You never call `close()`. You cannot forget it. The file always closes.
 
-> **Tests to validate.**
-> - If numbers.txt contains "10\n20\n30\n", the sum should be 60.
-> - If numbers.txt does not exist, a `FileNotFoundError` should be raised (and not caught in this version).
-> - After the `with` block exits, the file should be closed (verify by trying to read from the file object afterward — it should raise an error).
+This is **context management**: `open()` returns an object that knows how to set up (open the connection) and tear down (flush and close) the file access. The `with` statement calls the setup on entry and the teardown on exit, guaranteed.
+
+In production code, always use `with`. The only time you'd manage `open()` and `close()` manually is when the file needs to stay open across multiple operations separated by other work — which is rare and usually a sign the design needs rethinking.
 
 ---
 
-## Worked example — processing student exam scores from CSV
+## File Paths
 
-A file `exam_scores.csv` contains:
+`open()` takes a filename. That filename is either a **relative path** (interpreted relative to the directory where your script is running) or an **absolute path** (starting from the root of the filesystem).
+
+```python
+open("data.txt")               # same folder as your script
+open("inputs/data.txt")        # in a subfolder called inputs
+open("../data.txt")            # one folder up
+open("/home/alice/data.txt")   # absolute path, Mac/Linux
+open("C:/Users/Alice/data.txt") # absolute path, Windows
+```
+
+On Windows, backslashes in paths need to be doubled (`"C:\\Users\\..."`) because `\` is an escape character in Python strings. Forward slashes work on all platforms and are the safer choice.
+
+The `pathlib` module provides a cleaner path interface that handles the platform differences automatically:
+
+```python
+from pathlib import Path
+
+data_path = Path("inputs") / "data.txt"   # builds the path correctly
+with open(data_path) as f:
+    contents = f.read()
+```
+
+`Path` objects work directly with `open()`, and the `/` operator builds paths in a platform-agnostic way.
+
+---
+
+## CSV: Parsing Tabular Data
+
+CSV — comma-separated values — is the simplest widespread format for tabular data. One row per line. Fields separated by commas.
 
 ```
 Name,Midterm,Final
@@ -406,18 +184,15 @@ Bob,78,88
 Charlie,92,91
 ```
 
-Write a program that reads this file, computes the average of each student's two scores, and prints the name with the average.
+Python gives you two ways to parse CSV. The manual approach uses the string tools you already know:
 
 ```python
-with open("exam_scores.csv") as infile:
-    lines = infile.readlines()
+with open("exam_scores.csv") as f:
+    lines = f.readlines()
 
-# Skip the header
-data_lines = lines[1:]
-
-for line in data_lines:
-    line = line.strip()
-    fields = line.split(",")
+header = lines[0]         # skip it
+for line in lines[1:]:
+    fields = line.strip().split(",")
     name = fields[0]
     midterm = int(fields[1])
     final = int(fields[2])
@@ -426,167 +201,130 @@ for line in data_lines:
 ```
 
 Output:
-
 ```
 Alice: 88.5
 Bob: 83.0
 Charlie: 91.5
 ```
 
-**Why this works:** 
-1. `with open()` guarantees the file closes.
-2. `readlines()` gives us all lines at once.
-3. `lines[1:]` skips the header.
-4. `split(",")` breaks each line into fields.
-5. `int()` converts string scores to numbers.
-6. The formula computes the average.
-7. `:.1f` formats the output to one decimal place.
+The `csv` module handles edge cases the manual approach misses — fields containing commas inside quotes, varying whitespace, different line endings:
 
-**What could go wrong:**
-- If the file does not exist, a `FileNotFoundError` is raised before we ever parse.
-- If a line has fewer than three fields, `fields[2]` raises an `IndexError`.
-- If `fields[1]` is not a valid integer (e.g., "absent"), `int()` raises a `ValueError`.
-- If the file is empty, `lines[1:]` is also empty, and the loop does not run.
+```python
+import csv
 
-To make this production-ready, you would wrap it in try-except:
+with open("exam_scores.csv", newline="") as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        name = row["Name"]
+        average = (int(row["Midterm"]) + int(row["Final"])) / 2
+        print(f"{name}: {average:.1f}")
+```
+
+`DictReader` uses the header row as keys, so each row is a dictionary. The name `row["Name"]` is clearer than `fields[0]`, and the module handles quoting and escaping automatically. For simple files with no embedded commas, manual splitting is fine. For anything that might come from a spreadsheet, use `csv.DictReader`.
+
+<!-- → [TABLE: manual split vs csv module — rows: manual split, csv.reader, csv.DictReader — columns: how fields are accessed, handles quoted commas?, header handling, best for — student should see when to reach for each approach] -->
+
+---
+
+## Errors That Come From Files
+
+File I/O fails in ways that memory operations do not. Three errors account for most failures:
+
+**`FileNotFoundError`** — the file doesn't exist at the path you specified.
 
 ```python
 try:
-    with open("exam_scores.csv") as infile:
-        lines = infile.readlines()
-    
-    if len(lines) < 2:
-        print("File has no data rows (only header or empty).")
-    else:
-        data_lines = lines[1:]
-        for line in data_lines:
-            line = line.strip()
-            fields = line.split(",")
-            name = fields[0]
-            midterm = int(fields[1])
-            final = int(fields[2])
-            average = (midterm + final) / 2
-            print(f"{name}: {average:.1f}")
-
+    with open("missing.txt") as f:
+        contents = f.read()
 except FileNotFoundError:
-    print("exam_scores.csv not found.")
-except ValueError as e:
-    print(f"Invalid number in file: {e}")
-except IndexError as e:
-    print(f"Line format error (missing field): {e}")
+    print("File not found. Check the filename and path.")
 ```
 
----
-
-## Claude Code — Building a small CLI utility with CSV and JSON
-
-The patterns you have learned — `with`, CSV parsing, error handling — come together in a real task: reading student grades from a CSV file, analyzing them, and writing a summary report as JSON.
-
-This is where Claude Code becomes a partner. You describe what you want, Claude Code builds it, and you test it. The conversation teaches you the machinery while the code teaches you the patterns.
-
-### The task
-
-You have a file `students.csv` with student names and test scores:
-
-```
-Name,Score
-Alice,92
-Bob,78
-Charlie,85
-Diana,91
-```
-
-Write a program `report.py` that:
-1. Reads the CSV using the `csv` module (not manual string splitting).
-2. Computes the average score and identifies the highest scorer.
-3. Writes the summary to a JSON file `report.json`.
-4. Handles the case where `students.csv` does not exist — a clear error message, not a stack trace.
-
-Then write a test file `test_report.py` that creates a temporary CSV, runs the logic, parses the resulting JSON, and asserts the computations are correct.
-
-### How to work with Claude Code
-
-**Step 1: Ask Claude Code to scaffold the main program.**
-
-Prompt: "Create a Python script `report.py` that reads a CSV file `students.csv` (with columns Name and Score), computes the average score and the name of the highest scorer, and writes a dictionary to `report.json` with keys 'average' and 'highest_name'. Use the `csv` module for parsing. If `students.csv` does not exist, print a helpful error message and exit gracefully."
-
-Claude Code will write `report.py`. It will import `csv` and `json`, open the file with `with`, read the CSV rows, compute statistics, and write JSON using `json.dump()`. Look for the use of the `with` statement — that is the pattern in action.
-
-**Step 2: Ask Claude Code to write the test.**
-
-Prompt: "Write a test file `test_report.py` using pytest. Create a temporary `students.csv` with 5 test records, run the report logic, parse the output JSON, and assert that the average is correct and the highest-name is correct. Use the tmp_path fixture for the temporary file."
-
-Claude Code will write `test_report.py`. Watch how the test uses `with` to open the temp CSV, and how `json.load()` parses the result.
-
-**Step 3: Ask Claude Code to add error handling.**
-
-Prompt: "Modify `report.py` to handle the case where `students.csv` does not exist. Show a friendly error message instead of a traceback. Also handle the case where a score is not a valid integer — print a message and skip that record."
-
-Claude Code will add try-except blocks. You will see `FileNotFoundError` and `ValueError` caught by name.
-
-**Step 4: Run the tests.**
-
-Copy the files to your machine. Run `pytest test_report.py`. Watch it pass. Then delete `students.csv` and run the program again — the error message should appear, friendly and clear.
-
-### What you learn by doing this
-
-- `with` and `json.load()` / `json.dump()` are not isolated features. They work together in a real workflow.
-- The `csv` module handles the splitting and quoting that manual `split(",")` cannot.
-- Tests are not decoration. They are a way to verify that your error handling works and that you have not introduced a bug.
-- A program that crashes with a stack trace is not production-ready. A program that prints a message and exits is.
-
-### Why Claude Code here
-
-You could write `report.py` by hand, line by line, using this chapter. But the point is not to test whether you can type. The point is to understand the pattern: open a file, read structured data, parse it into Python objects, compute with those objects, write the result to a new file, handle errors. Claude Code writes the scaffold fast. You read it, verify it uses the patterns you have learned, and understand how they compose into a real program.
-
----
-
-## Common errors you will meet
-
-**NameError: file not closed in your namespace.** You opened a file but never assigned it to a variable, so you cannot close it.
+**`ValueError`** — a field that should be a number isn't.
 
 ```python
-# Wrong
-open("data.txt").read()  # File never closes!
-
-# Right
-with open("data.txt") as f:
-    data = f.read()
+try:
+    score = int(fields[1])   # "absent" can't convert to int
+except ValueError as e:
+    print(f"Invalid score in row: {e}. Skipping.")
+    continue
 ```
 
-**FileNotFoundError: typo in filename or wrong path.** Check the filename and the working directory of your script.
+**`IndexError`** — a line has fewer fields than expected.
 
-**IndexError: accessing a field that does not exist.** Your CSV row has fewer fields than you expected. Use `print(fields)` to debug.
+```python
+try:
+    name, midterm, final = fields[0], fields[1], fields[2]
+except IndexError:
+    print(f"Malformed row (too few fields): {line.strip()}")
+    continue
+```
 
-**ValueError: trying to convert a non-number string to int.** A field contains text, not a number. Check your assumptions about the file format.
+The pattern for robust CSV parsing: wrap the file open in a `try`/`except FileNotFoundError`, and wrap the per-line field access in a `try`/`except (ValueError, IndexError)` inside the loop. This way a single bad row doesn't abort the entire file.
 
-**UnicodeDecodeError: the file is not plain text.** You tried to open a binary file (image, PDF, compiled code) as text. Files like these need special libraries.
+```python
+try:
+    with open("grades.csv") as f:
+        lines = f.readlines()
+except FileNotFoundError:
+    print("grades.csv not found.")
+    raise SystemExit(1)
+
+for line in lines[1:]:   # skip header
+    try:
+        fields = line.strip().split(",")
+        name = fields[0]
+        score = int(fields[1])
+        print(f"{name}: {score}")
+    except (ValueError, IndexError) as e:
+        print(f"Skipping malformed row: {line.strip()!r} — {e}")
+```
+
+<!-- → [FIGURE: flowchart of robust file parsing — outer try/except catches FileNotFoundError around the open(), inner try/except inside the loop catches ValueError and IndexError per row, with "continue" on error to process the rest of the file — student should see the two-level error handling structure] -->
 
 ---
 
-## Chapter summary
+## A Complete Example: Exam Score Report
 
-You now understand the full cycle: opening a connection to a file, reading or writing data through that connection, handling errors when things go wrong, and closing the connection to commit your work to disk.
+Read a CSV, compute per-student averages, write a summary file.
 
-You know the three reading methods (`read()`, `readline()`, `readlines()`) and when to use each: `read()` for small files you want all at once, `readlines()` for small-to-medium files you want as a list of lines, and line-by-line iteration for huge files. You know the three modes (`'r'`, `'w'`, `'a'`) and what each does: read, write-and-erase, append. You know that `write()` does not add newlines — you must. You know that buffering means your data sits in memory until `close()` flushes it to disk.
+```python
+import csv
 
-You know CSV: a human-readable format where commas separate fields. You know how to parse it by reading lines, stripping whitespace, splitting by comma, and casting strings to numbers.
+try:
+    with open("exam_scores.csv", newline="") as infile:
+        reader = csv.DictReader(infile)
+        results = []
+        for row in reader:
+            try:
+                name = row["Name"]
+                average = (int(row["Midterm"]) + int(row["Final"])) / 2
+                results.append((name, average))
+            except (ValueError, KeyError) as e:
+                print(f"Skipping row {row}: {e}")
+except FileNotFoundError:
+    print("exam_scores.csv not found.")
+    raise SystemExit(1)
 
-You know the errors that come from files: `FileNotFoundError` when the file is not there, `ValueError` and `IndexError` when the format is wrong. You know how to catch them with `try` and `except`. And you know the single best practice: use `with` to open files. It closes them automatically, even in the presence of exceptions.
+with open("report.txt", "w") as outfile:
+    outfile.write("Exam Score Report\n")
+    outfile.write("=" * 20 + "\n")
+    for name, avg in results:
+        outfile.write(f"{name}: {avg:.1f}\n")
 
-The pattern you have learned here — open, read or write, close — appears in every language that touches the filesystem. Learn it once and you have it for life.
+print(f"Report written. {len(results)} students processed.")
+```
 
----
+Everything in this program is a pattern from this chapter:
+- `with` to guarantee both files close
+- `csv.DictReader` for clean header-based access
+- Per-row error handling that skips bad rows without aborting
+- `"w"` mode to create the output file
+- Explicit `"\n"` in every `write()` call
 
-## What would change my mind
+*What would change my mind:* The chapter recommends `csv.DictReader` over manual splitting for anything that might have embedded commas. If a format is guaranteed to be simple — no quoted fields, no commas in values, machine-generated — manual splitting is fine and avoids the import. The decision is about what you can guarantee about the data source, which changes per project.
 
-If Python added automatic resource cleanup without the need for `with` (or if every file were small enough to fit in memory at once), the pressure to use `with` would relax. As it stands, `with` is not a luxury — it is the difference between code that works reliably and code that leaks file handles.
-
----
-
-## Still puzzling
-
-The interaction between buffering, file descriptors, and the operating system deserves a deeper treatment than this chapter gives. Why does one `close()` guarantee data is on disk while another does not? When does the OS actually write? Those are systems questions, not Python questions, but they shape how safe your code is. For now, the rule is simple: close your files, and prefer `with`.
+*Still puzzling:* The interaction between Python's buffer, the OS buffer, and the actual disk write involves at least two layers of buffering that `close()` flushes through. Why `flush()` exists as a separate method — flushing the Python buffer but not necessarily the OS buffer — and when you'd need `os.fsync()` to guarantee disk durability, are systems questions that Python's documentation treats lightly. For most programs, `close()` is enough. For financial or medical records, the deeper question matters.
 
 ---
 
@@ -594,53 +332,49 @@ The interaction between buffering, file descriptors, and the operating system de
 
 ### Warm-up
 
-**Exercise 14.1** *(LO: open and read)* Write a program that opens a file named `greeting.txt` and prints its entire contents using `read()`.
+**Exercise 14.1** *(Open and read.)*
+Write a program that opens a file named `greeting.txt` and prints its entire contents using `read()`. Use a `with` statement.
 
-**Exercise 14.2** *(LO: readlines and iteration)* Write a program that opens `greeting.txt` and uses `readlines()` to print the number of lines in the file.
+**Exercise 14.2** *(readlines.)*
+Write a program that opens `greeting.txt` and uses `readlines()` to print the number of lines in the file.
 
-**Exercise 14.3** *(LO: write mode)* Write a program that creates a file named `myfile.txt` and writes three lines to it. After closing, reopen the file and verify the contents with `print()`.
+**Exercise 14.3** *(Write mode.)*
+Write a program that creates `myfile.txt` and writes three lines to it using write mode. After the `with` block closes, reopen the file and print its contents. Verify that running the program a second time doesn't append — it overwrites.
 
 ### Application
 
-**Exercise 14.4** *(LO: paths and CSV parsing)* You have a file `/tmp/students.csv` with contents:
-
+**Exercise 14.4** *(CSV parsing.)*
+A file `students.csv` contains:
 ```
 Name,Age,Grade
 Alice,20,A
 Bob,19,B
 Charlie,21,A
 ```
+Write a program that reads this file using `csv.DictReader` and prints each student's name and grade.
 
-Write a program that reads this file (use the full path) and prints each student's name and grade.
+**Exercise 14.5** *(Error handling on open.)*
+Write a program that prompts the user for a filename, then tries to open and read it. Catch `FileNotFoundError` and print a helpful message. Let the user try again until a valid filename is given (use a `while True` loop that `break`s on success).
 
-**Exercise 14.5** *(LO: error handling)* Write a program that prompts the user for a filename, then tries to open and read it. If the file does not exist, catch the `FileNotFoundError` and print a helpful message. Allow the user to try again until a valid filename is given.
-
-**Exercise 14.6** *(LO: append vs. write)* Write a program that opens `log.txt` in write mode, writes "Starting.\n", closes, then opens the same file in append mode and writes "Finished.\n". Finally, read the file and print its contents. What do you see?
+**Exercise 14.6** *(Append vs. write.)*
+Write a program that opens `log.txt` in write mode, writes `"Starting.\n"`, closes it via `with`, then opens the same file in append mode and writes `"Finished.\n"`. Finally, read and print the file. What do you see? Change the second open to `"w"` mode and observe what happens.
 
 ### Synthesis
 
-**Exercise 14.7** *(LO: CSV, errors, with statement)* Write a program that uses `with` to open `grades.csv` and processes it as follows: read all lines, skip the header, parse each line as `Name,Score1,Score2`, convert scores to integers, compute the average, and print `Name: Average`. Handle `FileNotFoundError`, `ValueError`, and `IndexError` gracefully.
+**Exercise 14.7** *(CSV with error handling and `with`.)*
+Write a program that uses `with` to open `grades.csv` (format: `Name,Score1,Score2`). Skip the header. For each row, parse `Name`, convert scores to integers, compute the average, and print `Name: average`. Catch `FileNotFoundError`, `ValueError`, and `IndexError` — each should produce a specific, helpful message.
 
-**Exercise 14.8** *(LO: write structured data)* Write a program that opens `output.csv` in write mode, writes a header line `"Product,Price,Quantity"`, then writes three product records of your choice (as comma-separated strings). Close the file, reopen in read mode, and print all lines.
+**Exercise 14.8** *(Write structured output.)*
+Write a program that opens `output.csv` in write mode, writes a header `"Product,Price,Quantity"`, then writes three product records. Close the file via `with`, reopen in read mode, and print all lines. Confirm that running the program twice produces the same output (not doubled records).
 
----
+### Challenge
 
-## Connections forward
+**Exercise 14.9** *(Grade report pipeline.)*
+Write a two-pass program: first read `scores.csv` (format: `Name,Score`) and compute the class average; then write a `report.txt` where each line is `"Name: Score (above/below average)"` depending on whether the student's score is above or below the class average. Handle all three error types. Use `with` throughout.
 
-Chapter 15 on data science will build on this foundation. You will learn pandas, a library that reads CSV (and other formats) into data structures optimized for analysis. When you load a CSV into a pandas DataFrame, the parsing you did by hand in this chapter happens under the hood. You will also meet NumPy arrays and matplotlib for visualization. All three libraries read from files and write to files. Knowing the mechanics of `open()`, `read()`, and `write()` will help you understand how they work and what can go wrong.
+**Exercise 14.10** *(Log rotation.)*
+Write a program that maintains a log file with at most 10 lines. On each run, append one new timestamped entry. After appending, read all lines — if there are more than 10, write the most recent 10 back to the file (overwriting the rest). Use `from datetime import datetime` to generate timestamps.
 
-You will also encounter JSON, a structured format for storing nested data. Reading and writing JSON is similar to CSV — use `open()` and `with` — but the parsing is done by the `json` module rather than by hand. Once you understand the file I/O pattern, adding a new format is straightforward: open, parse, use.
-
----
-
-## Tags
-
-`file-io` `open-read-write` `csv-parsing` `error-handling` `context-managers` `buffering` `file-paths`
-
----
-
-*Nik Bear Brown*
-*Reading: Files are the membrane between your program and the world. Read carefully; write once.*
 ---
 
 ## LLM Exercise — Chapter 14: Files (Text Adventure Project)
@@ -729,11 +463,11 @@ private about them beyond what the game itself collects.)
 
 **Preview of next chapter:** Chapter 15 — the closer. You'll add a playtest-data analysis. Track every game session's stats (rooms visited, items collected, time taken, win/lose) and produce a pandas/matplotlib analysis. Plus the final compiled game.
 
-
 ---
 
-##  AI Wayback Machine
-**Ken Thompson** was co-designed Unix and its file system — defining how programs work with files in every modern OS.
+## AI Wayback Machine
+
+**Ken Thompson** co-designed Unix and its file system — defining how programs work with files in every modern OS.
 
 **Run this:**
 
