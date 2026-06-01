@@ -2,39 +2,40 @@
 
 **Author:** Humanitarians AI Incorporated  
 **Publisher:** Humanitarians AI Incorporated, a 501(c)(3) nonprofit organization  
+**Copyright:** Copyright © 2026 Humanitarians AI Incorporated. All rights reserved.  
 **Edition:** 2026
 
-## Overview
+## Summary
 
-The first sign of trouble is usually not failure. It is fluency. The draft looks clean. The answer sounds reasonable. The chart has labels. The code runs. The plan has phases. The explanation has the rhythm of expertise. Nothing in the surface announces that a human still has work to do. This book is about the gap between a polished artifact and a trustworthy one. The central argument of **Introduction to Python Programming: with Claude** is that readers need a working method for the part of the work that cannot...
+*Introduction to Python Programming: with Claude* is a structured textbook for readers who need a clear path through the subject rather than a loose collection of explanations. It begins with Chapter 1 — Statements, moves through 15 core chapters, and ends with Chapter 15 — Data Science.
+
+AI matters to *Introduction to Python Programming: with Claude* because the modern textbook is no longer only a static container. It is also part of a learning system: searchable, remixable, explainable, and increasingly connected to tools such as Medhavy. For Humanitarians AI books, the relevant question is not whether AI can replace the learner or the teacher. It cannot. The useful question is what AI can make easier to inspect: definitions, worked examples, misconceptions, practice sequences, alternate explanations, and the structure of an argument. This book treats AI as infrastructure for open, public-interest learning infrastructure. The chapters should still stand on their own as readable prose, but they are also designed to be legible to an intelligent textbook system.
 
 ## Table of Contents
 
-- [Front Matter](chapters/00-frontmatter.md)
-- [Introduction](chapters/00-introduction.md)
-- [Chapter 1 — Statements](chapters/01-statements.md)
-- [Chapter 2 — Expressions](chapters/02-expressions.md)
-- [Chapter 3 — Objects](chapters/03-objects.md)
-- [Chapter 4 — Decisions](chapters/04-decisions.md)
-- [Chapter 5 — Loops](chapters/05-loops.md)
-- [Chapter 6 — Functions](chapters/06-functions.md)
-- [Chapter 7 — Modules](chapters/07-modules.md)
-- [Chapter 8 — Strings](chapters/08-strings.md)
-- [Chapter 9 — Lists](chapters/09-lists.md)
-- [Chapter 10 — Dictionaries](chapters/10-dictionaries.md)
-- [Chapter 11 — Classes](chapters/11-classes.md)
-- [Chapter 12 — Recursion](chapters/12-recursion.md)
-- [Chapter 13 — Inheritance](chapters/13-inheritance.md)
-- [Chapter 14 — Files](chapters/14-files.md)
-- [Chapter 15 — Data Science](chapters/15-data-science.md)
-- [Back Matter](chapters/99-back-matter.md)
+- **Chapter 1: Chapter 1 — Statements.** *The moment the computer does what you told it to.* There is a particular thing that happens the first time a program runs correctly. You wrote something, you pressed a key, and the machine responded. Not with an error. With the answer...
+- **Chapter 2: Chapter 2 — Expressions.** *The invisible ruler that decides what your code means.* There's a line of Python you can type right now, before you've learned anything else about the language, and it will surprise you: If you read left to right — the way you...
+- **Chapter 3: Chapter 3 — Objects.** *Why every value in Python carries more than a value.* You are at the Python prompt on a Tuesday afternoon. You type `"hello".upper()` and get back `'HELLO'`. You stop. A string is a piece of data — a sequence of characters. It...
+- **Chapter 4: Chapter 4 — Decisions.** *The gate that decides which code runs — and why exactly one path executes.* Here's a line of Python that looks completely harmless: Run it and you get a `SyntaxError`. The code won't even start. But if you change that one character...
+- **Chapter 5: Chapter 5 — Loops.** *Repetition is the engine. A loop is how you install it.* A parking meter is a loop. You have thirty minutes. The meter ticks. One second passes. Twenty-nine minutes and fifty-nine seconds remain. Another second passes. Twenty-nine minutes and fifty-eight. The meter...
+- **Chapter 6: Chapter 6 — Functions.** *Write it once, name it, call it forever — and why the rules about where variables live matter more than they seem.* Here is a program fragment that calculates a tip three times: Now imagine the tip rate changes from 20% to...
+- **Chapter 7: Chapter 7 — Modules.** *How Python learned to stop reinventing the wheel.* Picture a Lego table. You could build every wheel-and-bracket assembly by hand each time — stack the same five bricks in the same order, over and over, every time a project needs wheels. Or...
+- **Chapter 8: Chapter 8 — Strings.** *A sequence of characters, an immutable fact, and the three operations that make text programmable.* Your phone screen just lit up because someone typed your name. What happened between their keypress and your notification is a long chain of machinery, but near...
+- **Chapter 9: Chapter 9 — Lists.** *The data structure that actually does work.* You are at a grocery store with a list written on a piece of paper. Milk, bread, eggs, cheese, tomatoes. As you move through the store you cross off each item — milk (done), bread...
+- **Chapter 10: Chapter 10 — Dictionaries.** *The data structure that maps a name to a fact in one lookup — and why that one property changes everything.* Here is a program that finds a student's grade by scanning a list: It works. But if there are a million...
+- **Chapter 11: Chapter 11 — Classes.** *One blueprint. A thousand machines. The same logic.* You are standing in front of a vending machine on a Tuesday afternoon. Inside it are dozens of different products — soda cans, snack bags, energy bars — each with its own price, quantity,...
+- **Chapter 12: Chapter 12 — Recursion.** *A function that calls itself — and the one rule that keeps it from running forever.* Here is a function with no loop, no list, no accumulator: It calls itself. `factorial(5)` calls `factorial(4)`, which calls `factorial(3)`, which calls `factorial(2)`, which calls `factorial(1)`,...
+- **Chapter 13: Chapter 13 — Inheritance.** *One design. Many specializations. The same machinery underneath.* You walk into a hardware store and find two saws hanging side by side. One is a hand saw — wooden handle, long blade, teeth along the edge. The other is a circular saw...
+- **Chapter 14: Chapter 14 — Files.** *The membrane between your program and the world — and why close() is not optional.* Here is a program that runs perfectly and loses all its output: The string was written. You can verify this — Python executed `write()` without error. But...
+- **Chapter 15: Chapter 15 — Data Science.** *The loop you no longer have to write.* The spreadsheet is open on your screen. One hundred thousand rows. Twelve columns. Five years of sales data — every transaction your company logged. You need to know: which months had the best revenue?...
 
-## Copyright and License
+## Files
 
-Copyright © 2026 Humanitarians AI Incorporated. All rights reserved.
+- `chapters/00-frontmatter.md` — title page, copyright, dedication, and preface
+- `chapters/00-introduction.md` — roadmap and book-level AI note
+- `chapters/99-back-matter.md` — acknowledgments, author note, references placeholder, and Medhavy note
+- `LICENSE.md` — rights and reuse terms
 
-See [LICENSE.md](LICENSE.md) for permissions and restrictions.
+## Medhavy
 
-## Medhavy / Medhavi Integration
-
-This book is intended for Kindle, online reading, and integration with Medhavy, an AI-powered intelligent textbook system. The static manuscript provides the durable text; Medhavy can provide adaptive practice, glossary support, study paths, and feedback loops.
+This book is prepared for Kindle, online publication, and integration with Medhavy: https://www.medhavy.com/

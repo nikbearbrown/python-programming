@@ -469,6 +469,10 @@ private about them beyond what the game itself collects.)
 
 **Ken Thompson** co-designed Unix and its file system — defining how programs work with files in every modern OS.
 
+![Ken Thompson](../images/ken-thompson-ijs.png)
+
+*Puppet Art by [Nik Bear Brown](https://www.nikbearbrown.com/).*
+
 **Run this:**
 
 ```

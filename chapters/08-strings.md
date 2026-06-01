@@ -486,6 +486,10 @@ parser? (Hint: never crash; always say something helpful.)
 
 **Joseph Marie Jacquard** invented the punched-card programmable loom in 1804 — the conceptual ancestor of string-and-instruction encoded computation.
 
+![Joseph Marie Jacquard](../images/joseph-marie-jacquard-8uq.png)
+
+*Puppet Art by [Nik Bear Brown](https://www.nikbearbrown.com/).*
+
 **Run this:**
 
 ```

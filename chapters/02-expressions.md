@@ -376,6 +376,10 @@ discipline).
 
 ## AI Wayback Machine
 
+![Alonzo Church](../images/alonzo-church-61e.png)
+
+*Puppet Art by [Nik Bear Brown](https://www.nikbearbrown.com/).*
+
 **Run this:**
 
 ```

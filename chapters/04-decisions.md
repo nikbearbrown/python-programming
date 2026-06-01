@@ -427,6 +427,10 @@ replayable.
 
 **Edsger Dijkstra** argued in 1968 that `goto` considered harmful — and laid the groundwork for structured decision flow in modern programming.
 
+![Edsger Dijkstra](../images/edsger-dijkstra-64z.png)
+
+*Puppet Art by [Nik Bear Brown](https://www.nikbearbrown.com/).*
+
 **Run this:**
 
 ```
